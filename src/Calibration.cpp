@@ -131,7 +131,7 @@ bool Calibration::calibrate()
  */
 bool Calibration::isInField()
 {
-  return analogRead(this->hall_pin) < 100;
+  return digitalRead(this->hall_pin) == LOW;
 }
 
 /**
