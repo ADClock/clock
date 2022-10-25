@@ -32,6 +32,7 @@ void quickWrite(uint8_t pin, bool state)
     break;
 
   default:
+    digitalWrite(pin, state);
     break;
   }
 }
