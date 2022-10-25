@@ -71,10 +71,13 @@ void Motor::stepForward()
   this->writeNewCoilState();
 
   // Update position
-  this->current_pos++;
-  if (this->current_pos > MAX_STEPS)
+  if (this->current_pos == MAX_STEPS - 1)
   {
     this->current_pos = 0;
+  }
+  else
+  {
+    this->current_pos++;
   }
   this->current_direction = true;
 
@@ -95,7 +98,7 @@ void Motor::stepBackward()
   // Update position
   if (this->current_pos == 0)
   {
-    this->current_pos = MAX_STEPS;
+    this->current_pos = MAX_STEPS - 1;
   }
   else
   {
