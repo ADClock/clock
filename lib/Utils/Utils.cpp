@@ -21,7 +21,6 @@ size_t diff(size_t start, size_t finish, bool direction)
 {
   if (direction) // Rotating forwards
   {
-
     if (finish >= start)
       return finish - start;
     else
@@ -45,7 +44,7 @@ size_t diff(size_t start, size_t finish, bool direction)
  */
 size_t calculateFieldLeavePosition(size_t fieldWidth, bool direction)
 {
-  return (direction ? fieldWidth / 2 : MAX_STEPS - fieldWidth / 2);
+  return (direction ? fieldWidth / 2 : MAX_STEPS - (fieldWidth / 2));
 }
 
 /**

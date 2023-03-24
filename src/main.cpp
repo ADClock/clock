@@ -50,7 +50,7 @@ bool calibrateMotors()
     counter++;
     delay(5);
 
-    if (counter > MAX_STEPS * 3)
+    if (counter > MAX_STEPS * 2)
     {
 #ifdef DEBUG
       Serial.println("Calibration canceled. Atleast one Magnet not found.");
@@ -70,11 +70,20 @@ void setup()
 
   calibrateMotors();
 
+  delay(2000);
+  for (int i = 0; i < MAX_STEPS * 10; i++)
+  {
+    motor2.planStepBackward();
+    motor1.planStepForward();
+  }
+
   // ISR for Data Input
   attachInterrupt(digitalPinToInterrupt(COMM_IN_CLOCK), isr_data_receiving, RISING);
 
 #ifdef DEBUG
-  Serial.println("Setup done!");
+  Serial.println("> Debugging is enabled. Setup finished.");
+#else
+  Serial.println("> Debugging is disabled. Setup finished. No more messages will be printed to ensure correct timings.");
 #endif
 }
 

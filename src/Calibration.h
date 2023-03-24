@@ -6,8 +6,8 @@
 
 enum CalibrationState
 {
-  LEAVEMAGNET,
-  FINDMAGNET,
+  LEAVE_MAGNET,
+  FIND_MAGNET,
   INFIELD,
   CENTERING,
   CALIBRATED
@@ -15,7 +15,7 @@ enum CalibrationState
 
 enum RecalibrationState
 {
-  WAITINGFORMAGNET,
+  WAITING_FOR_MAGNET,
   WAIT_EXIT_FORWARD,
   WAIT_EXIT_BACKWARD
 };
@@ -38,6 +38,7 @@ private:
   size_t steps;
 
   bool recal_infield;
+  bool recal_ignore_next_field; // Ignore the first field after calibration
   bool recal_enter_direction;
   size_t recal_enter_pos;
   size_t recal_leave_pos;

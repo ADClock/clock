@@ -15,16 +15,16 @@ Calibration::Calibration(Motor &m, size_t hall_pin) : motor(m), hall_pin(hall_pi
 void Calibration::startCalibration()
 {
   this->steps = 0;
-  this->state = FINDMAGNET;
+  this->state = FIND_MAGNET;
 #ifdef DEBUG
   Serial.println("Starte Kalibierung");
 #endif
 }
 
 // Funktionsweise der Kalibierung:
-// 0. Der Motor muss das Magnetfeld finden (FINDMAGNET) und zählt die Steps
+// 0. Der Motor muss das Magnetfeld finden (FIND_MAGNET) und zählt die Steps
 // 1. Der Motor muss sich mindestens MIN_STEPS_OUTSIDE_FIELD Steps außerhalb des Magnetfelds drehen, damit die initalisierung richtig funktioniert. (LEAVEMAGNET)
-// 2. Der Motor muss das Magnetfeld finden (FINDMAGNET) und zählt die Steps
+// 2. Der Motor muss das Magnetfeld finden (FIND_MAGNET) und zählt die Steps
 // 3. Der Motor durchwandert das Magnetfeld (INFIELD) und zählt die Steps
 // 4. Der Motor verlässt das Magnetfeld nimmt die Stepps von INFIELD/2 und läuft diese zurück (CENTERING)
 // 5. Der Motor ist kalibiert (CALIBRATED)
@@ -44,11 +44,11 @@ bool Calibration::calibrate()
 
   switch (this->state)
   {
-  case FINDMAGNET:
+  case FIND_MAGNET:
     if (in_field && this->steps <= MIN_STEPS_OUTSIDE_FIELD)
     {
       this->steps = MIN_STEPS_OUTSIDE_FIELD + 1;
-      this->state = LEAVEMAGNET;
+      this->state = LEAVE_MAGNET;
 #ifdef DEBUG
       Serial.println("Calibration >> Magnet in unter 20 Schritten gefunden. Drehe rückwärts..");
 #endif
@@ -68,10 +68,10 @@ bool Calibration::calibrate()
     }
     break;
 
-  case LEAVEMAGNET:
+  case LEAVE_MAGNET:
     if (this->steps == 0)
     {
-      this->state = FINDMAGNET;
+      this->state = FIND_MAGNET;
 #ifdef DEBUG
       Serial.println("Calibration >> Aus dem Feld gedreht.. Suche Magnet erneut");
 #endif
@@ -104,6 +104,7 @@ bool Calibration::calibrate()
     {
       this->state = CALIBRATED;
       this->motor.reset();
+      this->recal_ignore_next_field = true;
 
 #ifdef DEBUG
       Serial.println("Calibration >> Zeiger zentriert. Kalibrierung abgeschlossen");
@@ -143,16 +144,24 @@ bool Calibration::isInField()
  */
 void Calibration::checkForCalibrationAfterStep()
 {
-  if (!this->recal_infield && this->isInField())
+  bool in_field = isInField();
+  if (!this->recal_infield && in_field)
   {
     this->recal_infield = true;
     this->recal_enter_pos = this->motor.getCurrentPosition();
-    this->recal_enter_direction = true; // TODO
+    this->recal_enter_direction = motor.isRotatingForwards(); // true = forwards, false = backwards
   }
-  else if (this->recal_infield && !this->isInField())
+  else if (this->recal_infield && !in_field)
   {
     this->recal_infield = false;
-    if (this->recal_enter_direction != true)
+
+    if (this->recal_ignore_next_field)
+    {
+      this->recal_ignore_next_field = false;
+      return; // Ignore the first field after calibration. Do not recalibrate
+    }
+
+    if (this->recal_enter_direction != motor.isRotatingForwards())
     {
       return; // The field was left on the same side. Do not recalibrate
     }
@@ -166,9 +175,11 @@ void Calibration::checkForCalibrationAfterStep()
       return; // The tracked magnet field was smaller then the minimum magnet field width. Do not recalibrate
     }
 
-    size_t target_pos = calculateFieldLeavePosition(field_width, this->recal_enter_direction);
-    bool correction_direction = getShortestDirection(this->motor.getCurrentPosition(), target_pos);
-    size_t steps_off = diff(this->motor.getCurrentPosition(), target_pos, correction_direction);
-    this->motor.recalibrate(target_pos, steps_off, correction_direction);
+    size_t target_leave_pos = calculateFieldLeavePosition(field_width, this->recal_enter_direction);
+    bool correction_direction = getShortestDirection(this->motor.getCurrentPosition(), target_leave_pos);
+    size_t steps_off = diff(this->motor.getCurrentPosition(), target_leave_pos, correction_direction);
+    this->motor.recalibrate(target_leave_pos, steps_off, correction_direction);
+    this->recal_ignore_next_field = true;
+    delay(1000); // TODO
   }
 }

@@ -28,11 +28,12 @@ private:
   const uint8_t pin4;
 
   size_t current_pos;
-  bool current_direction;
-  int planned_steps;
+  bool current_direction; // true = forward, false = backward
+  int planned_steps;      // negative = backward, positive = forward
 
   unsigned long last_step_micros;
   size_t coil_state;
+  size_t previous_coil_state;
 };
 
 #endif

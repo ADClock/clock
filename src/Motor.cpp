@@ -40,6 +40,7 @@ void quickWrite(uint8_t pin, bool state)
 Motor::Motor(uint8_t _pin1, uint8_t _pin2, uint8_t _pin3, uint8_t _pin4) : pin1(_pin1), pin2(_pin2), pin3(_pin3), pin4(_pin4)
 {
   this->coil_state = 1;
+  this->previous_coil_state = 0;
 
   pinMode(pin1, OUTPUT);
   pinMode(pin2, OUTPUT);
@@ -113,52 +114,82 @@ void Motor::stepBackward()
 
 void Motor::writeNewCoilState()
 {
-  switch (this->coil_state)
+  // Disable previous coil
+  switch (this->previous_coil_state)
   {
   case 1:
-    quickWrite(pin2, HIGH);
     quickWrite(pin1, LOW);
     break;
   case 2:
-    quickWrite(pin3, HIGH);
     quickWrite(pin2, LOW);
     break;
   case 3:
-    quickWrite(pin4, HIGH);
     quickWrite(pin3, LOW);
     break;
   case 4:
-    quickWrite(pin1, HIGH);
     quickWrite(pin4, LOW);
     break;
+  case 0:
+    this->disableAllCoils();
+    break;
   }
+
+  // Enable new coil
+  switch (this->coil_state)
+  {
+  case 1:
+    quickWrite(pin1, HIGH);
+    break;
+  case 2:
+    quickWrite(pin2, HIGH);
+    break;
+  case 3:
+    quickWrite(pin3, HIGH);
+    break;
+  case 4:
+    quickWrite(pin4, HIGH);
+    break;
+  }
+
+  this->previous_coil_state = this->coil_state;
 }
 
 bool Motor::tryStep()
 {
-  if (this->planned_steps != 0)
+
+  if (this->planned_steps == 0)
   {
     long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
     if (micros_since_last_step > MIN_STEP_DELAY)
     {
       // We can execute the next step!
-      if (this->planned_steps < 0)
-      {
-        this->stepBackward();
-      }
-      else if (this->planned_steps > 0)
-      {
-        this->stepForward();
-      }
-      this->last_step_micros = micros();
-      return true;
-    } // else do nothing and wait until the MIN_STEP_DELAY is reached
+      this->disableAllCoils(); // disable coils since no step will be executed
+      this->last_step_micros = 0;
+      return false;
+    }
+    else
+    {
+      // do nothing and wait until the MIN_STEP_DELAY is reached
+      return false;
+    }
   }
-  else
+
+  long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
+  if (micros_since_last_step > MIN_STEP_DELAY)
   {
-    // This might be to fast. Maybe we need MIN_STEP_DELAY before turning the pins off?
-    this->disableAllCoils();
-  }
+    // We can execute the next step!
+    if (this->planned_steps < 0)
+    {
+      this->stepBackward();
+    }
+    else if (this->planned_steps > 0)
+    {
+      this->stepForward();
+    }
+    this->last_step_micros = micros();
+    return true;
+  } // else do nothing and wait until the MIN_STEP_DELAY is reached
+
   return false; // No step was executed
 }
 
@@ -167,6 +198,7 @@ void Motor::reset()
   this->current_pos = 0;
   this->last_step_micros = 0;
   this->planned_steps = 0;
+  this->disableAllCoils();
 }
 
 void Motor::disableAllCoils()
