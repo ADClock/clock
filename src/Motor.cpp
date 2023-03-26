@@ -82,6 +82,7 @@ void Motor::stepForward()
     this->current_pos++;
   }
   this->current_direction = true;
+  this->standing_still = false;
 
   // Decrease planned steps because we did one in positive direction
   this->planned_steps--;
@@ -107,6 +108,7 @@ void Motor::stepBackward()
     this->current_pos--;
   }
   this->current_direction = false;
+  this->standing_still = false;
 
   // Increase planned steps because we did one in negative direction
   this->planned_steps++;
@@ -156,25 +158,26 @@ void Motor::writeNewCoilState()
 
 bool Motor::tryStep()
 {
+  if (this->standing_still && this->planned_steps == 0)
+  {
+    return false;
+  }
+
+  long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
 
   if (this->planned_steps == 0)
   {
-    long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
-    if (micros_since_last_step > MIN_STEP_DELAY)
+    if (micros_since_last_step > MIN_STANDSTILL_DELAY)
     {
       // We can execute the next step!
       this->disableAllCoils(); // disable coils since no step will be executed
       this->last_step_micros = 0;
-      return false;
+      this->standing_still = true;
     }
-    else
-    {
-      // do nothing and wait until the MIN_STEP_DELAY is reached
-      return false;
-    }
+
+    return false;
   }
 
-  long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
   if (micros_since_last_step > MIN_STEP_DELAY)
   {
     // We can execute the next step!
@@ -198,6 +201,7 @@ void Motor::reset()
   this->current_pos = 0;
   this->last_step_micros = 0;
   this->planned_steps = 0;
+  this->standing_still = true;
   this->disableAllCoils();
 }
 

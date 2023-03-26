@@ -5,11 +5,17 @@
 
 ClockCommunication::ClockCommunication(OwnInstruction &own) : own(own)
 {
-  pinMode(COMM_OUT_CLOCK, OUTPUT);
   pinMode(COMM_OUT_DATA1, OUTPUT);
   pinMode(COMM_OUT_DATA2, OUTPUT);
   pinMode(COMM_OUT_DATA3, OUTPUT);
   pinMode(COMM_OUT_DATA4, OUTPUT);
+  pinMode(COMM_OUT_CLOCK, OUTPUT);
+  FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
+
+  pinMode(COMM_IN_DATA1, INPUT);
+  pinMode(COMM_IN_DATA2, INPUT);
+  pinMode(COMM_IN_DATA3, INPUT);
+  pinMode(COMM_IN_DATA4, INPUT);
 }
 
 /**
@@ -27,12 +33,16 @@ void ClockCommunication::tick()
 {
   if (this->pass_on_instructions)
   {
-    if (FastGPIO::Pin<COMM_OUT_CLOCK>::isOutputValueHigh())
+    if (this->clock_out_high)
     {
       unsigned long micros_since_clock_high = micros() - this->last_instruction_send_micros; // always positive. Overflow save
       if (micros_since_clock_high > MIN_OUT_CLOCK_HIGH)
       {
+        this->clock_out_high = false;
         FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
+#ifdef DEBUG
+        Serial.println("tick: Turned clock low");
+#endif
       }
     }
     else
@@ -41,6 +51,14 @@ void ClockCommunication::tick()
       if (micros_since_last_input > DELAY_BETWEEN_INSTRUCTIONS)
       {
         this->pass_on_instructions = false;
+        // Reset all data pins
+        FastGPIO::Pin<COMM_OUT_DATA1>::setOutputLow();
+        FastGPIO::Pin<COMM_OUT_DATA2>::setOutputLow();
+        FastGPIO::Pin<COMM_OUT_DATA3>::setOutputLow();
+        FastGPIO::Pin<COMM_OUT_DATA4>::setOutputLow();
+#ifdef DEBUG
+        Serial.println("tick: Reset pass_on_instructions");
+#endif
       }
     }
   }
@@ -72,15 +90,38 @@ void ClockCommunication::updateOwnInstruction()
   this->own.data.minuteForward = FastGPIO::Pin<COMM_IN_DATA4>::isInputHigh();
   this->own.pending = true;
   this->pass_on_instructions = true; // Next instructions should be pass on to next clock
+#ifdef DEBUG
+  Serial.println("updateOwnInstruction: Received hourBackward: " + String(this->own.data.hourBackward) + ", hourForward: " + String(this->own.data.hourForward) + ", minuteBackward: " + String(this->own.data.minuteBackward) + ", minuteForward: " + String(this->own.data.minuteForward) + "");
+#endif
 }
 
 void ClockCommunication::passOnInstruction()
 {
-  // Maybe we need a buffer here
+  if (this->clock_out_high)
+  {
+    // Incoming data is a little bit to fast. We cant keep up. (Disable previous clock pulse, so new data can be send)
+    FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
+  }
   FastGPIO::Pin<COMM_OUT_DATA1>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA1>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA2>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA2>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA3>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA3>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA4>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA4>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputHigh();
+  this->clock_out_high = true;
+  this->last_instruction_send_micros = micros();
+#ifdef DEBUG
+  Serial.println("passOnInstruction");
+#endif
+}
+
+void ClockCommunication::sendTestInstruction(Instruction &instruction)
+{
+  this->pass_on_instructions = true;
+  FastGPIO::Pin<COMM_OUT_DATA1>::setOutputValue(instruction.hourBackward);
+  FastGPIO::Pin<COMM_OUT_DATA2>::setOutputValue(instruction.hourForward);
+  FastGPIO::Pin<COMM_OUT_DATA3>::setOutputValue(instruction.minuteBackward);
+  FastGPIO::Pin<COMM_OUT_DATA4>::setOutputValue(instruction.minuteForward);
+  FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputHigh();
+  this->clock_out_high = true;
   this->last_instruction_send_micros = micros();
 }

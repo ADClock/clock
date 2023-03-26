@@ -11,6 +11,7 @@ public:
   void tick();
 
   void processDataInput();
+  void sendTestInstruction(Instruction &instruction);
 
 private:
   void updateOwnInstruction();
@@ -18,6 +19,7 @@ private:
 
   OwnInstruction &own;
   bool pass_on_instructions;
+  bool clock_out_high;
   unsigned long last_instruction_read_micros;
   unsigned long last_instruction_send_micros;
 };

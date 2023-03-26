@@ -22,6 +22,9 @@ ClockCommunication comm(ownInstruction);
 void isr_data_receiving()
 {
   comm.processDataInput();
+#ifdef DEBUG
+  Serial.println("isr_data_receiving complete");
+#endif
 }
 
 /**
@@ -48,7 +51,7 @@ bool calibrateMotors()
     motor1Calibrated = calibration1.calibrate();
     motor2Calibrated = calibration2.calibrate();
     counter++;
-    delay(5);
+    delay(3);
 
     if (counter > MAX_STEPS * 2)
     {
@@ -62,28 +65,118 @@ bool calibrateMotors()
   return true;
 }
 
+void testCommunicationWithInstruction(Instruction &instruction, size_t clocks, size_t repeats, size_t delayBetweenClocks, size_t delayBetweenInstructions)
+{
+  unsigned long lastInstructionSendMicros = 0;
+  for (size_t i = 0; i < repeats; i++)
+  {
+    // for (size_t j = 0; j < clocks; j++)
+    //{
+    lastInstructionSendMicros = micros();
+    comm.sendTestInstruction(instruction);
+    //  while (micros() - lastInstructionSendMicros < delayBetweenClocks)
+    //  {
+    //    comm.tick();
+    //  }
+    //}
+    while (micros() - lastInstructionSendMicros < delayBetweenInstructions)
+    {
+      comm.tick();
+    }
+  }
+}
+
+/**
+ * @brief Test the communication between the clocks.
+ *
+ * This function is used to test the communication between the clocks.
+ * It is not used in the final product.
+ *
+ */
+void testCommunication()
+{
+  for (size_t i = 0; i < 5; i++)
+  {
+    motor1.stepForward();
+    delay(1000);
+  }
+
+  Instruction instruction;
+  instruction.hourBackward = true;
+  instruction.hourForward = false;
+  instruction.minuteBackward = true;
+  instruction.minuteForward = false;
+  testCommunicationWithInstruction(instruction, 1, 1000, 50, 4000);
+  motor2.stepForward();
+
+  delay(500);
+  instruction.hourBackward = false;
+  instruction.hourForward = true;
+  instruction.minuteBackward = false;
+  instruction.minuteForward = true;
+  testCommunicationWithInstruction(instruction, 1, 1000, 50, 4000);
+
+  delay(500);
+  instruction.hourBackward = true;
+  instruction.hourForward = false;
+  instruction.minuteBackward = false;
+  instruction.minuteForward = true;
+  testCommunicationWithInstruction(instruction, 1, 500, 50, 8000);
+
+  delay(500);
+  instruction.hourBackward = false;
+  instruction.hourForward = false;
+  instruction.minuteBackward = true;
+  instruction.minuteForward = false;
+  testCommunicationWithInstruction(instruction, 1, 500, 50, 4000);
+
+  // Reset for next time
+  motor2.stepForward();
+  motor1.stepForward();
+  delay(1000);
+  instruction.hourBackward = true;
+  instruction.hourForward = true;
+  instruction.minuteBackward = true;
+  instruction.minuteForward = true;
+  testCommunicationWithInstruction(instruction, 1, 1, 50, 4000);
+  motor2.stepForward();
+  motor1.stepForward();
+  delay(5000);
+}
+
+void testMotorSpeed(size_t delay_us)
+{
+  for (size_t i = 0; i < MAX_STEPS * 6; i++)
+  {
+    motor1.stepForward();
+    motor2.stepBackward();
+    delayMicroseconds(delay_us);
+  }
+  delay(5000);
+}
+
 void setup()
 {
-  Serial.begin(115200);
-  Serial.println("ADClock clock setup. For more information visit https://github.com/ADClock/clock");
-  Serial.println("For debugging information, define DEBUG in Config.h!");
+  // Serial.begin(115200);
+  // Serial.println("ADClock clock setup. For more information visit https://github.com/ADClock/clock");
+  // Serial.println("For debugging information, define DEBUG in Config.h!");
 
   calibrateMotors();
 
-  delay(2000);
-  for (int i = 0; i < MAX_STEPS * 10; i++)
-  {
-    motor2.planStepBackward();
-    motor1.planStepForward();
-  }
+  // Test communication
+  // testCommunication();
+
+  // Test different motor speeds
+  // delay(2000);
+  // testMotorSpeed(4000);
+  // testMotorSpeed(3500);
+  // testMotorSpeed(3000);
 
   // ISR for Data Input
   attachInterrupt(digitalPinToInterrupt(COMM_IN_CLOCK), isr_data_receiving, RISING);
 
 #ifdef DEBUG
   Serial.println("> Debugging is enabled. Setup finished.");
-#else
-  Serial.println("> Debugging is disabled. Setup finished. No more messages will be printed to ensure correct timings.");
 #endif
 }
 
@@ -97,27 +190,28 @@ void loop()
     {
       calibrateMotors();
     }
+    else
+    {
+      // Update motor1
+      if (ownInstruction.data.hourBackward)
+      {
+        motor1.planStepBackward();
+      }
+      else if (ownInstruction.data.hourForward)
+      {
+        motor1.planStepForward();
+      }
 
-    // Update motor1
-    if (ownInstruction.data.hourBackward)
-    {
-      motor1.planStepBackward();
+      // Update motor2
+      if (ownInstruction.data.minuteBackward)
+      {
+        motor2.planStepBackward();
+      }
+      else if (ownInstruction.data.minuteForward)
+      {
+        motor2.planStepForward();
+      }
     }
-    else if (ownInstruction.data.hourForward)
-    {
-      motor1.planStepForward();
-    }
-
-    // Update motor2
-    if (ownInstruction.data.minuteBackward)
-    {
-      motor2.planStepBackward();
-    }
-    else if (ownInstruction.data.minuteForward)
-    {
-      motor2.planStepForward();
-    }
-
     ownInstruction.pending = false; // own instruction processed
   }
 

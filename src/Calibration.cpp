@@ -180,6 +180,5 @@ void Calibration::checkForCalibrationAfterStep()
     size_t steps_off = diff(this->motor.getCurrentPosition(), target_leave_pos, correction_direction);
     this->motor.recalibrate(target_leave_pos, steps_off, correction_direction);
     this->recal_ignore_next_field = true;
-    delay(1000); // TODO
   }
 }
