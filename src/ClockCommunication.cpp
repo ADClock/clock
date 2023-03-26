@@ -31,36 +31,35 @@ ClockCommunication::ClockCommunication(OwnInstruction &own) : own(own)
  */
 void ClockCommunication::tick()
 {
-  if (this->pass_on_instructions)
+  if (!this->pass_on_instructions)
   {
-    if (this->clock_out_high)
-    {
-      unsigned long micros_since_clock_high = micros() - this->last_instruction_send_micros; // always positive. Overflow save
-      if (micros_since_clock_high > MIN_OUT_CLOCK_HIGH)
-      {
-        this->clock_out_high = false;
-        FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
-      }
-    }
-    else
-    {
-      unsigned long micros_since_last_input = micros() - this->last_instruction_read_micros; // always positive. Overflow save
-      if (micros_since_last_input > DELAY_BETWEEN_INSTRUCTIONS)
-      {
-        this->pass_on_instructions = false;
-        // Reset all data pins
-        FastGPIO::Pin<COMM_OUT_DATA1>::setOutputLow();
-        FastGPIO::Pin<COMM_OUT_DATA2>::setOutputLow();
-        FastGPIO::Pin<COMM_OUT_DATA3>::setOutputLow();
-        FastGPIO::Pin<COMM_OUT_DATA4>::setOutputLow();
-      }
-    }
+    // if no messages are forwarded, there is nothing to do for this procedure
+    return;
+  }
+
+  // unsigned long micros_since_last_input = micros() - this->last_instruction_read_micros; // always positive. Overflow save
+
+  unsigned long current_micros = micros();
+  unsigned long current_last_instruction_read_micros = this->last_instruction_read_micros;
+  if (current_micros < current_last_instruction_read_micros)
+  {
+    // Overflow or isr has interrupted and updated last_instruction_read_micros
+    current_last_instruction_read_micros = current_micros;
+  }
+  else if (current_micros - current_last_instruction_read_micros > DELAY_BETWEEN_INSTRUCTIONS)
+  {
+    // No new instruction for a long time
+    this->pass_on_instructions = false;
   }
 }
 
 /**
  * @brief Reads the instruction from the data pins and stores it as own instruction or passes it on to the next clock.
  *
+ * This function takes approximately 9 microseconds to execute.
+ * ~ 2 us for reading the data pins
+ * ~ 3 us for reading micros()
+ * ~ 4 us (CLOCK_OUT_HIGH) if sending the instruction to the next clock
  */
 void ClockCommunication::processDataInput()
 {
@@ -71,6 +70,7 @@ void ClockCommunication::processDataInput()
   else
   {
     this->updateOwnInstruction();
+    this->pass_on_instructions = true; // Next instructions should be pass on to next clock
   }
 
   this->last_instruction_read_micros = micros();
@@ -83,23 +83,17 @@ void ClockCommunication::updateOwnInstruction()
   this->own.data.minuteBackward = FastGPIO::Pin<COMM_IN_DATA3>::isInputHigh();
   this->own.data.minuteForward = FastGPIO::Pin<COMM_IN_DATA4>::isInputHigh();
   this->own.pending = true;
-  this->pass_on_instructions = true; // Next instructions should be pass on to next clock
 }
 
 void ClockCommunication::passOnInstruction()
 {
-  if (this->clock_out_high)
-  {
-    // Incoming data is a little bit to fast. We cant keep up. (Disable previous clock pulse, so new data can be send)
-    FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
-  }
   FastGPIO::Pin<COMM_OUT_DATA1>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA1>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA2>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA2>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA3>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA3>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_DATA4>::setOutputValue(FastGPIO::Pin<COMM_IN_DATA4>::isInputHigh());
   FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputHigh();
-  this->clock_out_high = true;
-  this->last_instruction_send_micros = micros();
+  delayMicroseconds(CLOCK_OUT_HIGH);
+  FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
 }
 
 void ClockCommunication::sendTestInstruction(Instruction &instruction)

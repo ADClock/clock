@@ -6,12 +6,12 @@
 #define MIN_WIDTH_FOR_RECALIBRATION 10
 
 // Communication parameters
-#define MIN_OUT_CLOCK_HIGH 5            // us
-#define DELAY_BETWEEN_INSTRUCTIONS 1500 // us
+#define CLOCK_OUT_HIGH 4               // us
+#define DELAY_BETWEEN_INSTRUCTIONS 500 // us
 
 // Motor
 #define MAX_STEPS 1705             // steps per rotation
-#define MIN_STEP_DELAY 2500        // us
+#define MIN_STEP_DELAY 2000        // us
 #define MIN_STANDSTILL_DELAY 10000 // us
 
 // Pins
