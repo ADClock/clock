@@ -40,9 +40,6 @@ void ClockCommunication::tick()
       {
         this->clock_out_high = false;
         FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputLow();
-#ifdef DEBUG
-        Serial.println("tick: Turned clock low");
-#endif
       }
     }
     else
@@ -56,9 +53,6 @@ void ClockCommunication::tick()
         FastGPIO::Pin<COMM_OUT_DATA2>::setOutputLow();
         FastGPIO::Pin<COMM_OUT_DATA3>::setOutputLow();
         FastGPIO::Pin<COMM_OUT_DATA4>::setOutputLow();
-#ifdef DEBUG
-        Serial.println("tick: Reset pass_on_instructions");
-#endif
       }
     }
   }
@@ -90,9 +84,6 @@ void ClockCommunication::updateOwnInstruction()
   this->own.data.minuteForward = FastGPIO::Pin<COMM_IN_DATA4>::isInputHigh();
   this->own.pending = true;
   this->pass_on_instructions = true; // Next instructions should be pass on to next clock
-#ifdef DEBUG
-  Serial.println("updateOwnInstruction: Received hourBackward: " + String(this->own.data.hourBackward) + ", hourForward: " + String(this->own.data.hourForward) + ", minuteBackward: " + String(this->own.data.minuteBackward) + ", minuteForward: " + String(this->own.data.minuteForward) + "");
-#endif
 }
 
 void ClockCommunication::passOnInstruction()
@@ -109,9 +100,6 @@ void ClockCommunication::passOnInstruction()
   FastGPIO::Pin<COMM_OUT_CLOCK>::setOutputHigh();
   this->clock_out_high = true;
   this->last_instruction_send_micros = micros();
-#ifdef DEBUG
-  Serial.println("passOnInstruction");
-#endif
 }
 
 void ClockCommunication::sendTestInstruction(Instruction &instruction)

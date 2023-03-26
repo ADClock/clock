@@ -157,10 +157,6 @@ void testMotorSpeed(size_t delay_us)
 
 void setup()
 {
-  // Serial.begin(115200);
-  // Serial.println("ADClock clock setup. For more information visit https://github.com/ADClock/clock");
-  // Serial.println("For debugging information, define DEBUG in Config.h!");
-
   calibrateMotors();
 
   // Test communication

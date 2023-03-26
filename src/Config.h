@@ -42,7 +42,4 @@
 #define COMM_IN_DATA3 4
 #define COMM_IN_DATA4 5
 
-// Enable Debug messages for Serial
-// #define DEBUG
-
 #endif

@@ -16,9 +16,6 @@ void Calibration::startCalibration()
 {
   this->steps = 0;
   this->state = FIND_MAGNET;
-#ifdef DEBUG
-  Serial.println("Starte Kalibierung");
-#endif
 }
 
 // Funktionsweise der Kalibierung:
@@ -30,13 +27,6 @@ void Calibration::startCalibration()
 // 5. Der Motor ist kalibiert (CALIBRATED)
 bool Calibration::calibrate()
 {
-#ifdef SKIPCALIBRATION
-#ifdef DEBUG
-  Serial.println("Calibration >> Die Kalibierung wurde aufgrund von 'SKIPCALIBRATION' übersprungen.");
-#endif
-  return true;
-#endif
-
   if (this->state == CALIBRATED)
     return true;
 
@@ -49,17 +39,11 @@ bool Calibration::calibrate()
     {
       this->steps = MIN_STEPS_OUTSIDE_FIELD + 1;
       this->state = LEAVE_MAGNET;
-#ifdef DEBUG
-      Serial.println("Calibration >> Magnet in unter 20 Schritten gefunden. Drehe rückwärts..");
-#endif
     }
     else if (in_field && this->steps > MIN_STEPS_OUTSIDE_FIELD)
     {
       this->steps = 0;
       this->state = INFIELD;
-#ifdef DEBUG
-      Serial.println("Calibration >> Magnet in über 20 Schritten gefunden. Durchlaufe das Feld.");
-#endif
     }
     else
     {
@@ -72,9 +56,6 @@ bool Calibration::calibrate()
     if (this->steps == 0)
     {
       this->state = FIND_MAGNET;
-#ifdef DEBUG
-      Serial.println("Calibration >> Aus dem Feld gedreht.. Suche Magnet erneut");
-#endif
     }
     else
     {
@@ -88,9 +69,6 @@ bool Calibration::calibrate()
     {
       this->state = CENTERING;
       this->steps = this->steps / 2;
-#ifdef DEBUG
-      Serial.println("Calibration >> Magnetfeld durchlaufen.. Zentriere den Zeiger");
-#endif
     }
     else
     {
@@ -105,10 +83,6 @@ bool Calibration::calibrate()
       this->state = CALIBRATED;
       this->motor.reset();
       this->recal_ignore_next_field = true;
-
-#ifdef DEBUG
-      Serial.println("Calibration >> Zeiger zentriert. Kalibrierung abgeschlossen");
-#endif
     }
     else
     {
