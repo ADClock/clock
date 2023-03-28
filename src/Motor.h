@@ -31,6 +31,7 @@ private:
   bool standing_still;    // true = not moving, false = moving
   bool current_direction; // true = forward, false = backward
   int planned_steps;      // negative = backward, positive = forward
+  int recal_steps;        // negative = backward, positive = forward (TODO: unused)
 
   unsigned long last_step_micros;
   size_t coil_state;

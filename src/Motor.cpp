@@ -83,9 +83,6 @@ void Motor::stepForward()
   }
   this->current_direction = true;
   this->standing_still = false;
-
-  // Decrease planned steps because we did one in positive direction
-  this->planned_steps--;
 }
 
 void Motor::stepBackward()
@@ -109,9 +106,6 @@ void Motor::stepBackward()
   }
   this->current_direction = false;
   this->standing_still = false;
-
-  // Increase planned steps because we did one in negative direction
-  this->planned_steps++;
 }
 
 void Motor::writeNewCoilState()
@@ -158,42 +152,76 @@ void Motor::writeNewCoilState()
 
 bool Motor::tryStep()
 {
-  if (this->standing_still && this->planned_steps == 0)
+  if (this->standing_still && this->planned_steps == 0 && this->recal_steps == 0)
   {
     return false;
   }
 
   long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
 
-  if (this->planned_steps == 0)
+  // No planned steps? Prevent motor from overheating by disabling coils
+  if (this->planned_steps == 0 && this->recal_steps == 0 && micros_since_last_step > MIN_STANDSTILL_DELAY)
   {
-    if (micros_since_last_step > MIN_STANDSTILL_DELAY)
-    {
-      // We can execute the next step!
-      this->disableAllCoils(); // disable coils since no step will be executed
-      this->last_step_micros = 0;
-      this->standing_still = true;
-    }
-
+    this->disableAllCoils(); // disable coils since no step will be executed
+    this->last_step_micros = 0;
+    this->standing_still = true;
     return false;
   }
 
-  if (micros_since_last_step > MIN_STEP_DELAY)
+  // We have to wait until the MIN_STEP_DELAY is reached to perform the next step
+  if (micros_since_last_step <= MIN_STEP_DELAY)
   {
-    // We can execute the next step!
-    if (this->planned_steps < 0)
-    {
-      this->stepBackward();
-    }
-    else if (this->planned_steps > 0)
-    {
-      this->stepForward();
-    }
-    this->last_step_micros = micros();
-    return true;
-  } // else do nothing and wait until the MIN_STEP_DELAY is reached
+    return false;
+  }
 
-  return false; // No step was executed
+  // // If there is recalibration needed, we might have to update the movement
+  // if (this->recal_steps != 0)
+  // {
+  //   if (this->planned_steps == 0)
+  //   {
+  //     // Current plan complete: Now execute the remaining recalibration steps
+  //     this->planned_steps = this->recal_steps;
+  //     this->recal_steps = 0;
+  //   }
+  //   else if (this->planned_steps > 0 && this->recal_steps > 0)
+  //   {
+  //     // Both planned and recalibration steps are positive: Skip one planned step
+  //     this->planned_steps--;
+  //     this->recal_steps--;
+  //   }
+  //   else if (this->planned_steps < 0 && this->recal_steps < 0)
+  //   {
+  //     // Both planned and recalibration steps are negative: Skip one planned step
+  //     this->planned_steps++;
+  //     this->recal_steps++;
+  //   }
+  //   else if (this->planned_steps > 0 && this->recal_steps < 0)
+  //   {
+  //     // Planned steps are positive, recalibration steps are negative: Skip one planned step
+  //     this->planned_steps--;
+  //     this->recal_steps++;
+  //   }
+  //   else if (this->planned_steps < 0 && this->recal_steps > 0)
+  //   {
+  //     // Planned steps are negative, recalibration steps are positive: Skip one planned step
+  //     this->planned_steps++;
+  //     this->recal_steps--;
+  //   }
+  // }
+
+  // We can execute the next step!
+  if (this->planned_steps < 0)
+  {
+    this->stepBackward();
+    this->planned_steps++;
+  }
+  else if (this->planned_steps > 0)
+  {
+    this->stepForward();
+    this->planned_steps--;
+  }
+  this->last_step_micros = micros();
+  return true;
 }
 
 void Motor::reset()
@@ -201,6 +229,7 @@ void Motor::reset()
   this->current_pos = 0;
   this->last_step_micros = 0;
   this->planned_steps = 0;
+  this->recal_steps = 0;
   this->standing_still = true;
   this->disableAllCoils();
 }
@@ -225,14 +254,24 @@ bool Motor::isRotatingForwards()
 
 void Motor::recalibrate(size_t target_pos, size_t steps_off, bool correction_direction)
 {
+  // Serial.print("Recalibrating motor. Target position: ");
+  // Serial.print(target_pos);
+  // Serial.print(" Steps off: ");
+  // Serial.print(steps_off);
+  // Serial.print(" Correction direction: ");
+  // Serial.println(correction_direction);
+  // Serial.print("Current position: ");
+  // Serial.print(this->current_pos);
   if (correction_direction)
   {
     this->planned_steps += steps_off;
-    this->current_pos = (target_pos - steps_off + MAX_STEPS) % MAX_STEPS;
+    this->current_pos = (target_pos + steps_off) % MAX_STEPS;
   }
   else
   {
     this->planned_steps -= steps_off;
-    this->current_pos = (target_pos + steps_off) % MAX_STEPS;
+    this->current_pos = (target_pos - steps_off + MAX_STEPS) % MAX_STEPS;
   }
+  // Serial.print("New Current position: ");
+  // Serial.println(this->current_pos);
 }

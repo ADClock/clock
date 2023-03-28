@@ -22,9 +22,6 @@ ClockCommunication comm(ownInstruction);
 void isr_data_receiving()
 {
   comm.processDataInput();
-#ifdef DEBUG
-  Serial.println("isr_data_receiving complete");
-#endif
 }
 
 /**
@@ -55,9 +52,6 @@ bool calibrateMotors()
 
     if (counter > MAX_STEPS * 2)
     {
-#ifdef DEBUG
-      Serial.println("Calibration canceled. Atleast one Magnet not found.");
-#endif
       return false;
     }
   } while (!motor1Calibrated || !motor2Calibrated);
@@ -155,6 +149,96 @@ void testMotorSpeed(size_t delay_us)
   delay(5000);
 }
 
+void testMotorRotation()
+{
+  Serial.begin(115200);
+  Serial.println("Test motor rotation");
+
+  size_t motor1stepsRotation = 0;
+  size_t motor1stepsMagnet = 0;
+  bool motor1magnetDetected = false;
+  bool motor1roundDone = false;
+
+  size_t motor2stepsRotation = 0;
+  size_t motor2stepsMagnet = 0;
+  bool motor2magnetDetected = false;
+  bool motor2roundDone = false;
+
+  while (true)
+  {
+    if (!motor1roundDone)
+    {
+      motor1.stepForward();
+      motor1stepsRotation++;
+      if (calibration1.isInField())
+      {
+        motor1magnetDetected = true;
+        motor1stepsMagnet++;
+      }
+      else if (motor1magnetDetected)
+      {
+        motor1roundDone = true;
+      }
+    }
+
+    if (!motor2roundDone)
+    {
+      motor2.stepForward();
+      motor2stepsRotation++;
+      if (calibration2.isInField())
+      {
+        motor2magnetDetected = true;
+        motor2stepsMagnet++;
+      }
+      else if (motor2magnetDetected)
+      {
+        motor2roundDone = true;
+      }
+    }
+
+    if (motor1roundDone && motor2roundDone)
+    {
+      Serial.print(motor1stepsRotation);
+      Serial.print(";");
+      Serial.print(motor1stepsMagnet);
+      Serial.print(";");
+      Serial.print(motor2stepsRotation);
+      Serial.print(";");
+      Serial.print(motor2stepsMagnet);
+      Serial.println();
+      motor1stepsRotation = 0;
+      motor1stepsMagnet = 0;
+      motor1magnetDetected = false;
+      motor1roundDone = false;
+      motor2stepsRotation = 0;
+      motor2stepsMagnet = 0;
+      motor2magnetDetected = false;
+      motor2roundDone = false;
+    }
+
+    delay(2);
+  }
+}
+
+void testRecalibration()
+{
+  Serial.begin(115200);
+  Serial.println("Test motor recalibration");
+  // Remember to enable serial print in Motor.cpp recalibrate() function
+
+  for (size_t i = 0; i < 1000; i++)
+    motor1.planStepForward();
+  while (true)
+  {
+    if (motor1.tryStep())
+    {
+      calibration1.checkForCalibrationAfterStep();
+      motor1.planStepForward();
+    }
+    delayMicroseconds(200);
+  }
+}
+
 void setup()
 {
   calibrateMotors();
@@ -163,17 +247,18 @@ void setup()
   // testCommunication();
 
   // Test different motor speeds
-  // delay(2000);
   // testMotorSpeed(4000);
   // testMotorSpeed(3500);
   // testMotorSpeed(3000);
 
+  // Test motor rotation
+  // testMotorRotation();
+
+  // Test recalibration
+  testRecalibration();
+
   // ISR for Data Input
   attachInterrupt(digitalPinToInterrupt(COMM_IN_CLOCK), isr_data_receiving, RISING);
-
-#ifdef DEBUG
-  Serial.println("> Debugging is enabled. Setup finished.");
-#endif
 }
 
 void loop()

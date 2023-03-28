@@ -29,9 +29,9 @@ public:
 
   void checkForCalibrationAfterStep();
 
-private:
   bool isInField();
 
+private:
   Motor &motor;
   size_t hall_pin;
   CalibrationState state;
