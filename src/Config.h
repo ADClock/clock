@@ -1,18 +1,28 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+// #define COIL_MODE_SINGLE
+
+// Motor
+#ifdef COIL_MODE_SINGLE
+#define MAX_COIL_STATE 4
+#define MAX_STEPS 1706
+#define MIN_STEP_DELAY 2300
+#else
+#define MAX_COIL_STATE 8
+#define MAX_STEPS 3414
+#define MIN_STEP_DELAY 1100
+#endif
+#define MIN_STANDSTILL_DELAY 10000 // us
+
 // Calibration
-#define MIN_STEPS_OUTSIDE_FIELD 20
-#define MIN_WIDTH_FOR_RECALIBRATION 10
+#define MIN_STEPS_OUTSIDE_FIELD (2 * MAX_COIL_STATE)
+#define MIN_WIDTH_FOR_RECALIBRATION (3 * MAX_COIL_STATE)
+#define MIN_STEPS_OFF_FOR_RECALIBRATION (3 * MAX_COIL_STATE) // deactivate recalibration, real value: 20
 
 // Communication parameters
 #define CLOCK_OUT_HIGH 4               // us
-#define DELAY_BETWEEN_INSTRUCTIONS 500 // us
-
-// Motor
-#define MAX_STEPS 1705             // steps per rotation
-#define MIN_STEP_DELAY 2000        // us
-#define MIN_STANDSTILL_DELAY 10000 // us
+#define DELAY_BETWEEN_INSTRUCTIONS 300 // us
 
 // Pins
 #define HALL_DATA_PIN_1 A1

@@ -66,7 +66,7 @@ void Motor::stepForward()
 {
   // Move hand
   this->coil_state++;
-  if (this->coil_state > 4)
+  if (this->coil_state > MAX_COIL_STATE)
   {
     this->coil_state = 1;
   }
@@ -82,7 +82,6 @@ void Motor::stepForward()
     this->current_pos++;
   }
   this->current_direction = true;
-  this->standing_still = false;
 }
 
 void Motor::stepBackward()
@@ -91,7 +90,7 @@ void Motor::stepBackward()
   this->coil_state--;
   if (this->coil_state < 1)
   {
-    this->coil_state = 4;
+    this->coil_state = MAX_COIL_STATE;
   }
   this->writeNewCoilState();
 
@@ -105,71 +104,105 @@ void Motor::stepBackward()
     this->current_pos--;
   }
   this->current_direction = false;
-  this->standing_still = false;
 }
 
 void Motor::writeNewCoilState()
 {
-  // Disable previous coil
-  switch (this->previous_coil_state)
+  this->coils_active = true;
+
+#ifdef COIL_MODE_SINGLE
+  switch (this->coil_state)
   {
   case 1:
-    quickWrite(pin1, LOW);
-    break;
-  case 2:
+    quickWrite(pin4, LOW);
+    quickWrite(pin1, HIGH);
     quickWrite(pin2, LOW);
     break;
-  case 3:
+  case 2:
+    quickWrite(pin1, LOW);
+    quickWrite(pin2, HIGH);
     quickWrite(pin3, LOW);
     break;
-  case 4:
+  case 3:
+    quickWrite(pin2, LOW);
+    quickWrite(pin3, HIGH);
     quickWrite(pin4, LOW);
+    break;
+  case 4:
+    quickWrite(pin3, LOW);
+    quickWrite(pin4, HIGH);
+    quickWrite(pin1, LOW);
     break;
   case 0:
     this->disableAllCoils();
     break;
   }
-
+#else
   // Enable new coil
   switch (this->coil_state)
   {
   case 1:
+    quickWrite(pin4, LOW);
     quickWrite(pin1, HIGH);
+    quickWrite(pin2, LOW);
     break;
   case 2:
+    quickWrite(pin1, HIGH);
     quickWrite(pin2, HIGH);
     break;
   case 3:
-    quickWrite(pin3, HIGH);
+    quickWrite(pin1, LOW);
+    quickWrite(pin2, HIGH);
+    quickWrite(pin3, LOW);
     break;
   case 4:
+    quickWrite(pin2, HIGH);
+    quickWrite(pin3, HIGH);
+    break;
+  case 5:
+    quickWrite(pin2, LOW);
+    quickWrite(pin3, HIGH);
+    quickWrite(pin4, LOW);
+    break;
+  case 6:
+    quickWrite(pin3, HIGH);
     quickWrite(pin4, HIGH);
     break;
+  case 7:
+    quickWrite(pin3, LOW);
+    quickWrite(pin4, HIGH);
+    quickWrite(pin1, LOW);
+    break;
+  case 8:
+    quickWrite(pin4, HIGH);
+    quickWrite(pin1, HIGH);
+    break;
+  case 0:
+    this->disableAllCoils();
+    break;
   }
-
-  this->previous_coil_state = this->coil_state;
+#endif
 }
 
 bool Motor::tryStep()
 {
-  if (this->standing_still && this->planned_steps == 0 && this->recal_steps == 0)
+  if (this->coils_active == false && this->planned_steps == 0 && this->recal_steps == 0)
   {
     return false;
   }
 
-  long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
+  unsigned long micros_since_last_step = micros() - this->last_step_micros; // always positive. Overflow save
 
   // No planned steps? Prevent motor from overheating by disabling coils
-  if (this->planned_steps == 0 && this->recal_steps == 0 && micros_since_last_step > MIN_STANDSTILL_DELAY)
+  if (this->planned_steps == 0 && micros_since_last_step > MIN_STANDSTILL_DELAY)
   {
-    this->disableAllCoils(); // disable coils since no step will be executed
+    this->disableAllCoils();
     this->last_step_micros = 0;
-    this->standing_still = true;
     return false;
   }
 
-  // We have to wait until the MIN_STEP_DELAY is reached to perform the next step
-  if (micros_since_last_step <= MIN_STEP_DELAY)
+  // If we are not ready for the next step, skip current iteration
+  if (micros_since_last_step < MIN_STEP_DELAY)
   {
     return false;
   }
@@ -220,6 +253,10 @@ bool Motor::tryStep()
     this->stepForward();
     this->planned_steps--;
   }
+  else
+  {
+    return false;
+  }
   this->last_step_micros = micros();
   return true;
 }
@@ -230,7 +267,6 @@ void Motor::reset()
   this->last_step_micros = 0;
   this->planned_steps = 0;
   this->recal_steps = 0;
-  this->standing_still = true;
   this->disableAllCoils();
 }
 
@@ -240,6 +276,7 @@ void Motor::disableAllCoils()
   quickWrite(pin2, LOW);
   quickWrite(pin3, LOW);
   quickWrite(pin4, LOW);
+  this->coils_active = false;
 }
 
 size_t Motor::getCurrentPosition()
@@ -264,12 +301,12 @@ void Motor::recalibrate(size_t target_pos, size_t steps_off, bool correction_dir
   // Serial.print(this->current_pos);
   if (correction_direction)
   {
-    this->planned_steps += steps_off;
+    this->planned_steps -= steps_off;
     this->current_pos = (target_pos + steps_off) % MAX_STEPS;
   }
   else
   {
-    this->planned_steps -= steps_off;
+    this->planned_steps += steps_off;
     this->current_pos = (target_pos - steps_off + MAX_STEPS) % MAX_STEPS;
   }
   // Serial.print("New Current position: ");

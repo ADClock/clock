@@ -28,7 +28,7 @@ private:
   const uint8_t pin4;
 
   size_t current_pos;
-  bool standing_still;    // true = not moving, false = moving
+  bool coils_active;      // true = at least one coil is active
   bool current_direction; // true = forward, false = backward
   int planned_steps;      // negative = backward, positive = forward
   int recal_steps;        // negative = backward, positive = forward (TODO: unused)

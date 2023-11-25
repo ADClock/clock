@@ -48,7 +48,7 @@ bool calibrateMotors()
     motor1Calibrated = calibration1.calibrate();
     motor2Calibrated = calibration2.calibrate();
     counter++;
-    delay(3);
+    delayMicroseconds(MIN_STEP_DELAY);
 
     if (counter > MAX_STEPS * 2)
     {
@@ -198,12 +198,14 @@ void testMotorRotation()
 
     if (motor1roundDone && motor2roundDone)
     {
+      Serial.print(MIN_STEP_DELAY);
+      Serial.print("  ");
       Serial.print(motor1stepsRotation);
-      Serial.print(";");
+      Serial.print("  ");
       Serial.print(motor1stepsMagnet);
-      Serial.print(";");
+      Serial.print("  ");
       Serial.print(motor2stepsRotation);
-      Serial.print(";");
+      Serial.print("  ");
       Serial.print(motor2stepsMagnet);
       Serial.println();
       motor1stepsRotation = 0;
@@ -216,7 +218,7 @@ void testMotorRotation()
       motor2roundDone = false;
     }
 
-    delay(2);
+    delayMicroseconds(MIN_STEP_DELAY);
   }
 }
 
@@ -252,10 +254,10 @@ void setup()
   // testMotorSpeed(3000);
 
   // Test motor rotation
-  // testMotorRotation();
+  testMotorRotation();
 
   // Test recalibration
-  testRecalibration();
+  // testRecalibration();
 
   // ISR for Data Input
   attachInterrupt(digitalPinToInterrupt(COMM_IN_CLOCK), isr_data_receiving, RISING);

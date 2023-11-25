@@ -1,5 +1,5 @@
 #include "Calibration.h"
-#include <Utils.h>
+#include "Utils.h"
 #include <FastGPIO.h>
 #include "Config.h"
 
@@ -18,13 +18,21 @@ void Calibration::startCalibration()
   this->state = FIND_MAGNET;
 }
 
-// Funktionsweise der Kalibierung:
-// 0. Der Motor muss das Magnetfeld finden (FIND_MAGNET) und zählt die Steps
-// 1. Der Motor muss sich mindestens MIN_STEPS_OUTSIDE_FIELD Steps außerhalb des Magnetfelds drehen, damit die initalisierung richtig funktioniert. (LEAVEMAGNET)
-// 2. Der Motor muss das Magnetfeld finden (FIND_MAGNET) und zählt die Steps
-// 3. Der Motor durchwandert das Magnetfeld (INFIELD) und zählt die Steps
-// 4. Der Motor verlässt das Magnetfeld nimmt die Stepps von INFIELD/2 und läuft diese zurück (CENTERING)
-// 5. Der Motor ist kalibiert (CALIBRATED)
+/**
+ * @brief Calibrates the motor.
+ *
+ * The calibration process is divided into several steps:
+ * 1. Preparation: If the motor is inside or very close to the magnetic field, it must leave the field first. (FIND_MAGNET)
+ *   1. Check if the motor is inside the magnetic field and the steps are less than MIN_STEPS_OUTSIDE_FIELD.
+ *   2. Forcing the motor to leave the magnetic field by rotating it backwards until MIN_STEPS_OUTSIDE_FIELD is reached. (LEAVE_MAGNET)
+ * 2. The motor must find the magnetic field (FIND_MAGNET) by stepping forward.
+ * 3. The motor must walk through the magnetic field (INFIELD) and count the width of the field.
+ * 4. The motor must rotate backwards by half the width of the field (CENTERING).
+ * 5. The motor is calibrated (CALIBRATED).
+ *
+ * @return true
+ * @return false
+ */
 bool Calibration::calibrate()
 {
   if (this->state == CALIBRATED)
@@ -56,6 +64,10 @@ bool Calibration::calibrate()
     if (this->steps == 0)
     {
       this->state = FIND_MAGNET;
+    }
+    else if (in_field)
+    {
+      this->motor.stepBackward();
     }
     else
     {
@@ -129,20 +141,29 @@ void Calibration::checkForCalibrationAfterStep()
   {
     this->recal_infield = false;
 
+    if (this->recal_enter_direction != motor.isRotatingForwards())
+    {
+      return; // The field was left on the same side. Do not recalibrate
+    }
+
     if (this->recal_ignore_next_field)
     {
       this->recal_ignore_next_field = false;
       return; // Ignore the first field after calibration. Do not recalibrate
     }
 
-    if (this->recal_enter_direction != motor.isRotatingForwards())
-    {
-      return; // The field was left on the same side. Do not recalibrate
-    }
-
     this->recal_leave_pos = this->motor.getCurrentPosition();
 
     size_t field_width = diff(this->recal_enter_pos, this->recal_leave_pos, this->recal_enter_direction);
+
+    // Serial.print("Field width: ");
+    // Serial.println(field_width);
+    // Serial.print(" Enter pos: ");
+    // Serial.println(this->recal_enter_pos);
+    // Serial.print(" Leave pos: ");
+    // Serial.println(this->recal_leave_pos);
+    // Serial.print(" Enter dir: ");
+    // Serial.println(this->recal_enter_direction);
 
     if (field_width < MIN_WIDTH_FOR_RECALIBRATION)
     {
@@ -152,6 +173,14 @@ void Calibration::checkForCalibrationAfterStep()
     size_t target_leave_pos = calculateFieldLeavePosition(field_width, this->recal_enter_direction);
     bool correction_direction = getShortestDirection(this->motor.getCurrentPosition(), target_leave_pos);
     size_t steps_off = diff(this->motor.getCurrentPosition(), target_leave_pos, correction_direction);
+
+    if (steps_off < MIN_STEPS_OFF_FOR_RECALIBRATION)
+    {
+      return; // The motor is not far enough off target position. Do not recalibrate
+    }
+
+    steps_off /= 2; // Soft recalibration (slowly pull hand back to correct position)
+
     this->motor.recalibrate(target_leave_pos, steps_off, correction_direction);
     this->recal_ignore_next_field = true;
   }

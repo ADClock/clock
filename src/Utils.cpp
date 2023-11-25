@@ -1,37 +1,36 @@
 #include "Utils.h"
-
-#define MAX_STEPS 1705 // TODO Import from Config.h i guess
+#include "Config.h"
 
 /**
  * @brief Calculates the step difference between two points using the direction.
  *
- * If start and finish are equal, 0 is returned.
+ * If from and to are equal, 0 is returned.
  *
  * ```cpp
  * diff(20, 30, true);       // returns:   10
  * diff(1650, 1660, false);  // returns: 1695
  * ```
  *
- * @param start Start Point for calculation.
- * @param finish Finish Point for calculation.
- * @param direction Count the steps in forward or backward direction. True means forward.
+ * @param from Start Point for calculation.
+ * @param to Finish Point for calculation.
+ * @param direction Count the steps in forward (true) or backward (false) direction.
  * @return size_t Steps between both points. Number between [0, MAX_STEPS)
  */
-size_t diff(size_t start, size_t finish, bool direction)
+size_t diff(size_t from, size_t to, bool direction)
 {
   if (direction) // Rotating forwards
   {
-    if (finish >= start)
-      return finish - start;
+    if (to >= from)
+      return to - from;
     else
-      return MAX_STEPS - start + finish;
+      return MAX_STEPS - from + to;
   }
   else // Rotating backwards
   {
-    if (start >= finish)
-      return start - finish;
+    if (from >= to)
+      return from - to;
     else
-      return MAX_STEPS - finish + start;
+      return MAX_STEPS - to + from;
   }
 }
 
@@ -50,7 +49,7 @@ size_t calculateFieldLeavePosition(size_t fieldWidth, bool direction)
 /**
  * @brief Get the shortest direction between to positions.
  *
- * @param from Position to start from.
+ * @param from Stating from position.
  * @param to Target position to reach.
  * @return true Rotating forwards is the shortest direction.
  * @return false Rotating backwards is the shortest direction.
