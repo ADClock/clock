@@ -254,7 +254,7 @@ void setup()
   // testMotorSpeed(3000);
 
   // Test motor rotation
-  testMotorRotation();
+  // testMotorRotation();
 
   // Test recalibration
   // testRecalibration();
